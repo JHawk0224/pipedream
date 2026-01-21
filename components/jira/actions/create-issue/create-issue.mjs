@@ -7,8 +7,9 @@ export default {
   ...common,
   key: "jira-create-issue",
   name: "Create Issue",
-  description: "Creates an issue or, where the option to create subtasks is enabled in Jira, a subtask. [See the documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-post)",
-  version: "0.1.27",
+  description:
+    "Creates an issue or, where the option to create subtasks is enabled in Jira, a subtask. [See the documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-post)",
+  version: "0.1.28",
   annotations: {
     destructiveHint: false,
     openWorldHint: true,
@@ -20,7 +21,8 @@ export default {
     updateHistory: {
       type: "boolean",
       label: "Update History",
-      description: "Whether the project in which the issue is created is added to the user's **Recently viewed** project list, as shown under **Projects** in Jira",
+      description:
+        "Whether the project in which the issue is created is added to the user's **Recently viewed** project list, as shown under **Projects** in Jira",
       optional: true,
     },
     projectId: {
@@ -48,9 +50,7 @@ export default {
   },
   async additionalProps(existingProps) {
     const {
-      cloudId,
-      projectId,
-      issueTypeId,
+      cloudId, projectId, issueTypeId,
     } = this;
 
     if (isNaN(projectId) || !cloudId || isNaN(issueTypeId)) {
@@ -106,10 +106,13 @@ export default {
       ...dynamicFields
     } = this;
 
-    if ((!dynamicFields || Object.keys(dynamicFields).length === 0)
-      && (!additionalProperties || Object.keys(additionalProperties).length === 0)
+    if (
+      (!dynamicFields || Object.keys(dynamicFields).length === 0) &&
+      (!additionalProperties || Object.keys(additionalProperties).length === 0)
     ) {
-      throw new ConfigurationError("Please provide at least one additional property");
+      throw new ConfigurationError(
+        "Please provide at least one additional property",
+      );
     }
 
     const fields = utils.reduceProperties({
@@ -145,7 +148,10 @@ export default {
       },
     });
 
-    $.export("$summary", `Issue has been created successfuly. (ID:${response.id}, KEY:${response.key})`);
+    $.export(
+      "$summary",
+      `Issue has been created successfuly. (ID:${response.id}, KEY:${response.key})`,
+    );
 
     return response;
   },

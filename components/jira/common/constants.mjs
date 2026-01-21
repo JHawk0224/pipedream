@@ -6,6 +6,7 @@ const TYPE = {
   user: "string",
   issuelink: "string",
   issuetype: "string",
+  option: "string",
 };
 
 const FIELD_KEY = {
@@ -21,6 +22,7 @@ const FIELD_KEY = {
 
 const FIELD_TYPE = {
   TEXTAREA: "textarea",
+  SELECT: "select",
 };
 
 const SCHEMA = {

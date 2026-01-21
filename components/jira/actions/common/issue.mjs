@@ -21,12 +21,14 @@ export default {
         app,
         "properties",
       ],
-      description: "Details of issue properties to be added or updated. Please provide an array of objects with keys and values.",
+      description:
+        "Details of issue properties to be added or updated. Please provide an array of objects with keys and values.",
     },
     update: {
       type: "object",
       label: "Update",
-      description: "A Map containing the field name and a list of operations to perform on the issue screen field. Note that fields included here cannot be included in `fields`.",
+      description:
+        "A Map containing the field name and a list of operations to perform on the issue screen field. Note that fields included here cannot be included in `fields`.",
       optional: true,
     },
     additionalProperties: {
@@ -48,8 +50,7 @@ export default {
       case constants.FIELD_KEY.PARENT:
         return async ({ prevContext: { startAt = 0 } }) => {
           const {
-            app,
-            cloudId,
+            app, cloudId,
           } = this;
           const maxResults = 50;
           const { issues } = await app.searchIssues({
@@ -76,8 +77,7 @@ export default {
       case constants.FIELD_KEY.LABELS:
         return async ({ prevContext: { startAt = 0 } }) => {
           const {
-            app,
-            cloudId,
+            app, cloudId,
           } = this;
           const maxResults = 50;
           const { values } = await app.getLabels({
@@ -97,8 +97,7 @@ export default {
       case constants.FIELD_KEY.ISSUETYPE:
         return async () => {
           const {
-            getIssueTypes,
-            cloudId,
+            getIssueTypes, cloudId,
           } = this;
 
           const issueTypes = await getIssueTypes({
@@ -130,65 +129,98 @@ export default {
 
       return Object.values(fields)
         .filter(predicate)
-        .reduce(async (props, {
-          schema, name: label, key, autoCompleteUrl, required,
-        }) => {
-          const reduction = await props;
+        .reduce(
+          async (
+            props,
+            {
+              schema,
+              name: label,
+              key,
+              autoCompleteUrl,
+              required,
+              allowedValues,
+            },
+          ) => {
+            const reduction = await props;
 
-          const {
-            type: schemaType,
-            custom,
-          } = schema;
+            const {
+              type: schemaType, custom,
+            } = schema;
 
-          const newKey = custom?.includes(":")
-            ? `${key}_${custom.split(":")[1]}`
-            : key;
+            const newKey = custom?.includes(":")
+              ? `${key}_${custom.split(":")[1]}`
+              : key;
 
-          const value = {
-            // It defaults to object because it may expect a structure like { id: "123" }
-            type: constants.TYPE[schemaType] || "object",
-            label,
-            description: "Set your field value",
-            optional: !required,
-          };
+            const value = {
+              // It defaults to object because it may expect a structure like { id: "123" }
+              type: constants.TYPE[schemaType] || "object",
+              label,
+              description: "Set your field value",
+              optional: !required,
+            };
 
-          // Requests by URL
-          if (schemaTypes.includes(schemaType)) {
-            try {
-              const resources = await this.app._makeRequest({
-                url: autoCompleteUrl,
-              });
+            // Requests by URL
+            if (schemaTypes.includes(schemaType)) {
+              try {
+                const resources = await this.app._makeRequest({
+                  url: autoCompleteUrl,
+                });
 
+                return Promise.resolve({
+                  ...reduction,
+                  [newKey]: {
+                    ...value,
+                    options: resources.map(
+                      constants.SCHEMA[schemaType].mapping,
+                    ),
+                  },
+                });
+              } catch (error) {
+                console.log(
+                  "Error fetching resources requested by URL",
+                  autoCompleteUrl,
+                  error,
+                );
+                return Promise.resolve(reduction);
+              }
+            }
+
+            // Requests by Resource
+            if (keysForResourceRequest.includes(key)) {
               return Promise.resolve({
                 ...reduction,
                 [newKey]: {
                   ...value,
-                  options: resources.map(constants.SCHEMA[schemaType].mapping),
+                  options: this.getOptions(key),
                 },
               });
-
-            } catch (error) {
-              console.log("Error fetching resources requested by URL", autoCompleteUrl, error);
-              return Promise.resolve(reduction);
             }
-          }
 
-          // Requests by Resource
-          if (keysForResourceRequest.includes(key)) {
+            // Handle option/select fields with allowedValues (dropdowns)
+            if (schemaType === "option" && allowedValues?.length) {
+              return Promise.resolve({
+                ...reduction,
+                [newKey]: {
+                  ...value,
+                  options: allowedValues.map(
+                    ({
+                      id: optionValue, value: optionLabel,
+                    }) => ({
+                      label: optionLabel,
+                      value: optionValue,
+                    }),
+                  ),
+                },
+              });
+            }
+
             return Promise.resolve({
               ...reduction,
-              [newKey]: {
-                ...value,
-                options: this.getOptions(key),
-              },
+              [newKey]: value,
             });
-          }
-
-          return Promise.resolve({
-            ...reduction,
-            [newKey]: value,
-          });
-        }, Promise.resolve({}));
+          },
+          Promise.resolve({}),
+        );
     },
     formatFields(fields) {
       const keysToFormat = [
@@ -211,24 +243,29 @@ export default {
         constants.FIELD_KEY.LABELS,
       ];
 
-      return Object.entries(fields)
-        .reduce((props, [
-          key,
-          value,
-        ]) => {
-          const [
-            fieldName,
-            fieldId,
-            fieldType,
-          ] = key.split("_");
+      const fieldTypesToWrapWithId = [
+        constants.FIELD_TYPE.SELECT,
+      ];
 
-          key = fieldId
-            ? `${fieldName}_${fieldId}`
-            : fieldName;
+      return Object.entries(fields).reduce((props, [
+        key,
+        value,
+      ]) => {
+        const [
+          fieldName,
+          fieldId,
+          fieldType,
+        ] = key.split("_");
 
-          return {
-            ...props,
-            [key]: keysToFormat.includes(fieldName) || fieldTypesToFormat.includes(fieldType)
+        key = fieldId
+          ? `${fieldName}_${fieldId}`
+          : fieldName;
+
+        return {
+          ...props,
+          [key]:
+            keysToFormat.includes(fieldName) ||
+            fieldTypesToFormat.includes(fieldType)
               ? [
                 this.atlassianDocumentFormat(value),
                 value,
@@ -237,14 +274,19 @@ export default {
                 ? {
                   id: value,
                 }
-                : keysToConsiderAsArray.includes(fieldName) && Array.isArray(value)
+                : keysToConsiderAsArray.includes(fieldName) &&
+                Array.isArray(value)
                   ? [
                     value,
                     value.length,
                   ]
-                  : value,
-          };
-        }, {});
+                  : fieldTypesToWrapWithId.includes(fieldType)
+                    ? {
+                      id: value,
+                    }
+                    : value,
+        };
+      }, {});
     },
     /**
      * Formats the value to be compatible with the Jira API
